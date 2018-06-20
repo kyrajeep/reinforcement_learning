@@ -1,15 +1,4 @@
 
-# coding: utf-8
-
-# In[2]:
-
-
-
-
-
-# In[22]:
-
-
 import numpy as np
 import gym
 #Load the gym environment
