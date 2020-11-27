@@ -16,6 +16,9 @@ def lqr_policy(observation):
     K, S, E = control.lqr(A,B,Q,R)
     return -K*observation    
 
+    
+    
+
 env = gym.make('CartPole-v1')
 observation = env.reset()
 total_reward = 0
