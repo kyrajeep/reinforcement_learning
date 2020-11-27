@@ -14,8 +14,7 @@ def lqr_policy(observation):
     #S (2-d array) – Solution to Riccati equation
     #E (1-d array) – Eigenvalues of the closed loop system
     K, S, E = control.lqr(A,B,Q,R)
-    
-    return    
+    return -K*observation    
 
 env = gym.make('CartPole-v1')
 observation = env.reset()
