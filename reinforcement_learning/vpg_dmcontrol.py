@@ -1,4 +1,5 @@
-'''
+#TODO: use GPU, get the video working.. matplotlib backend?
+
 #@title Run to install MuJoCo and `dm_control`
 import distutils.util
 import subprocess
@@ -8,12 +9,10 @@ if subprocess.run('nvidia-smi').returncode:
       'Make sure you are using a GPU Colab runtime. '
       'Go to the Runtime menu and select Choose runtime type.')
 
-print('Installing dm_control...')
-!pip install -q dm_control>=1.0.8
 
 # Configure dm_control to use the EGL rendering backend (requires GPU)
-%env MUJOCO_GL=egl
-'''
+#env MUJOCO_GL=glfw
+
 print('Checking that the dm_control installation succeeded...')
 try:
   from dm_control import suite
@@ -70,28 +69,24 @@ from dm_control import manipulation
 import copy
 import os
 import itertools
-from IPython.display import clear_output
+#from IPython.display import clear_output
 import numpy as np
 
 # Graphics-related
 import matplotlib
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from IPython.display import HTML
+#from IPython.display import HTML
 import PIL.Image
+#import cv2
 # Internal loading of video libraries.
 
 # Use svg backend for figure rendering
 #%config InlineBackend.figure_format = 'svg'
-'''
-import matplotlib_inline.backend_inline
 
-if isinstance(ipython_format, str):
-    ipython_format = [ipython_format]
-    matplotlib_inline.backend_inline.set_matplotlib_formats(*ipython_format)
-from IPython.display import set_matplotlib_formats
-set_matplotlib_formats('retina')
-'''
+#import matplotlib_inline.backend_inline
+
+
 # Font sizes
 SMALL_SIZE = 8
 MEDIUM_SIZE = 10
@@ -113,7 +108,8 @@ else:
     height, width, _ = frames[0].shape
     dpi = 70
     orig_backend = matplotlib.get_backend()
-    matplotlib.use('Agg')  # Switch to headless 'Agg' to inhibit figure rendering.
+    # commented out to not use in colab.
+    #matplotlib.use('Agg')  # Switch to headless 'Agg' to inhibit figure rendering.
     fig, ax = plt.subplots(1, 1, figsize=(width / dpi, height / dpi), dpi=dpi)
     matplotlib.use(orig_backend)  # Switch back to the original backend.
     ax.set_axis_off()
@@ -126,7 +122,9 @@ else:
     interval = 1000/framerate
     anim = animation.FuncAnimation(fig=fig, func=update, frames=frames,
                                    interval=interval, blit=True, repeat=False)
-    return HTML(anim.to_html5_video())
+    #return HTML(anim.to_html5_video())
+    plt.show()
+    return
 
 # Seed numpy's global RNG so that cell outputs are deterministic. We also try to
 # use RandomState instances that are local to a single cell wherever possible.
@@ -146,7 +144,10 @@ static_model = """
 """
 physics = mujoco.Physics.from_xml_string(static_model)
 pixels = physics.render()
+print(pixels)
+print("make my image!")
 PIL.Image.fromarray(pixels)
+#plt.imshow(pixels)
 
 #@title Making a video {vertical-output: true}
 
