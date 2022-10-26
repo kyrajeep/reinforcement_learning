@@ -144,7 +144,7 @@ static_model = """
 # TODO: get an environment that is control specific.
 physics = mujoco.Physics.from_xml_string(static_model)
 model = control.Environment(physics)
-pixels = physics.render()
+pixels = model.render()
 
 PIL.Image.fromarray(pixels)
 #plt.imshow(pixels)
