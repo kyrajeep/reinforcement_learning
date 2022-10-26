@@ -1,5 +1,3 @@
-#TODO: use GPU, get the video working.. matplotlib backend?
-
 #@title Run to install MuJoCo and `dm_control`
 import distutils.util
 import subprocess
@@ -11,8 +9,8 @@ if subprocess.run('nvidia-smi').returncode:
 
 
 # Configure dm_control to use the EGL rendering backend (requires GPU)
-#env MUJOCO_GL=glfw
-
+#env MUJOCO_GL=egl
+#make sure to disable the headless option for matplotlib backend to run locally.
 print('Checking that the dm_control installation succeeded...')
 try:
   from dm_control import suite
@@ -32,7 +30,8 @@ else:
 
 # The basic mujoco wrapper.
 from dm_control import mujoco
-
+# import the rl module
+from dm_control.rl import control
 # Access to enums and MuJoCo library functions.
 from dm_control.mujoco.wrapper.mjbindings import enums
 from dm_control.mujoco.wrapper.mjbindings import mjlib
@@ -142,10 +141,11 @@ static_model = """
   </worldbody>
 </mujoco>
 """
+# TODO: get an environment that is control specific.
 physics = mujoco.Physics.from_xml_string(static_model)
+model = control.Environment(physics)
 pixels = physics.render()
-print(pixels)
-print("make my image!")
+
 PIL.Image.fromarray(pixels)
 #plt.imshow(pixels)
 
@@ -163,6 +163,8 @@ frames = []
 physics.reset()  # Reset state and time
 while physics.data.time < duration:
   physics.step()
+  print(physics.step_spec())
+
   if len(frames) < physics.data.time * framerate:
     pixels = physics.render(scene_option=scene_option)
     frames.append(pixels)
