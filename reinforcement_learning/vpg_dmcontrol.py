@@ -25,9 +25,6 @@ except Exception as e:
 else:
   del pixels, suite
 
-#!echo Installed dm_control $(pip show dm_control | grep -Po "(?<=Version: ).+")
-#@title All `dm_control` imports required for this tutorial
-
 # The basic mujoco wrapper.
 from dm_control import mujoco
 # import the rl module
@@ -52,39 +49,31 @@ from dm_control.locomotion.arenas import floors
 # Control Suite
 from dm_control import suite
 
-# Run through corridor example
+# Go to target and run through corridor examples
+from dm_control.locomotion.tasks import go_to_target
 from dm_control.locomotion.walkers import cmu_humanoid
 from dm_control.locomotion.arenas import corridors as corridor_arenas
 from dm_control.locomotion.tasks import corridors as corridor_tasks
-
-# Soccer
-from dm_control.locomotion import soccer
-
-# Manipulation
-from dm_control import manipulation
-#@title Other imports and helper functions
 
 # General
 import copy
 import os
 import itertools
-#from IPython.display import clear_output
 import numpy as np
+
+#testing
+import mock
 
 # Graphics-related
 import matplotlib
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-#from IPython.display import HTML
 import PIL.Image
-#import cv2
-# Internal loading of video libraries.
-
-# Use svg backend for figure rendering
-#%config InlineBackend.figure_format = 'svg'
-
-#import matplotlib_inline.backend_inline
-
+# To define goal
+from dm_control import composer
+from dm_control.composer import variation
+from dm_control.composer.observation import observable
+from dm_control.composer.variation import distributions
 
 # Font sizes
 SMALL_SIZE = 8
@@ -141,9 +130,10 @@ static_model = """
   </worldbody>
 </mujoco>
 """
-# TODO: get an environment that is control specific.
-physics = mujoco.Physics.from_xml_string(static_model)
-model = control.Environment(physics, task)
+# TODO: define a goal for this rl environment
+#physics = mujoco.Physics.from_xml_string(static_model)
+task = go_to_target.GoToTarget(walker=cmu_humanoid.CMUHumanoid(), arena=corridor_arenas.Corridor())
+model = control.Environment(walker, task)
 pixels = model.render()
 
 PIL.Image.fromarray(pixels)
