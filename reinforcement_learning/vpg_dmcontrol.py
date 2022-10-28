@@ -54,7 +54,7 @@ from dm_control.locomotion.tasks import go_to_target
 from dm_control.locomotion.walkers import cmu_humanoid
 from dm_control.locomotion.arenas import corridors as corridor_arenas
 from dm_control.locomotion.tasks import corridors as corridor_tasks
-
+from dm_control.locomotion.walkers import base
 # General
 import copy
 import os
@@ -117,24 +117,13 @@ else:
 # Seed numpy's global RNG so that cell outputs are deterministic. We also try to
 # use RandomState instances that are local to a single cell wherever possible.
 np.random.seed(42)
-
-
-#@title A static model {vertical-output: true}
-
-static_model = """
-<mujoco>
-  <worldbody>
-    <light name="top" pos="0 0 1"/>
-    <geom name="red_box" type="box" size=".2 .2 .2" rgba="1 0 0 1"/>
-    <geom name="green_sphere" pos=".2 .2 .2" size=".1" rgba="0 1 0 1"/>
-  </worldbody>
-</mujoco>
-"""
+'''
 # TODO: define a goal for this rl environment
 #physics = mujoco.Physics.from_xml_string(static_model)
-task = go_to_target.GoToTarget(walker=cmu_humanoid.CMUHumanoid(), arena=corridor_arenas.Corridor())
+walker = cmu_humanoid.CMUHumanoid()
+task = go_to_target.GoToTarget(walker, arena=floors.Floor())
 model = control.Environment(walker, task)
-pixels = model.render()
+pixels = walker.render()
 
 PIL.Image.fromarray(pixels)
 #plt.imshow(pixels)
@@ -143,7 +132,6 @@ PIL.Image.fromarray(pixels)
 
 duration = 2    # (seconds)
 framerate = 30  # (Hz)
-
 # Visualize the joint axis
 scene_option = mujoco.wrapper.core.MjvOption()
 scene_option.flags[enums.mjtVisFlag.mjVIS_JOINT] = True
@@ -159,3 +147,39 @@ while physics.data.time < duration:
     pixels = physics.render(scene_option=scene_option)
     frames.append(pixels)
 display_video(frames, framerate)
+'''
+# use the benchmark control suite
+max_len = max(len(d) for d, _ in suite.BENCHMARKING)
+for domain, task in suite.BENCHMARKING:
+  print(f'{domain:<{max_len}}  {task}')
+
+#@title Loading and simulating a `suite` task{vertical-output: true}
+
+# Load the environment
+random_state = np.random.RandomState(42)
+env = suite.load('hopper', 'stand', task_kwargs={'random': random_state})
+
+# Simulate episode with random actions
+duration = 4  # Seconds
+frames = []
+ticks = []
+rewards = []
+observations = []
+
+spec = env.action_spec()
+time_step = env.reset()
+
+while env.physics.data.time < duration:
+
+  action = random_state.uniform(spec.minimum, spec.maximum, spec.shape)
+  time_step = env.step(action)
+
+  camera0 = env.physics.render(camera_id=0, height=200, width=200)
+  camera1 = env.physics.render(camera_id=1, height=200, width=200)
+  frames.append(np.hstack((camera0, camera1)))
+  rewards.append(time_step.reward)
+  observations.append(copy.deepcopy(time_step.observation))
+  ticks.append(env.physics.data.time)
+
+html_video = display_video(frames, framerate=1./env.control_timestep())
+
