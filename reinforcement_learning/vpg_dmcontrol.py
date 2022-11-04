@@ -4,6 +4,7 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pdb
 
 #@title Run to install MuJoCo and `dm_control`
 import distutils.util
@@ -67,7 +68,7 @@ import itertools
 import numpy as np
 
 #testing
-import mock
+#import mock
 
 # Graphics-related
 import matplotlib
@@ -128,16 +129,16 @@ class Policy(nn.Module):
         super(Policy, self).__init__()
         self.sm = nn.Softmax(dim=0)
       # First fully connected layer that takes in state (4D)
-        self.fc1 = nn.Linear(4, 16)
+        self.fc1 = nn.Linear(13, 16)
       # Second fully connected layer that outputs our distribution over 2 actions
         self.fc2 = nn.Linear(16, 2)
-    def forward(self, input):
-        x = self.fc1(input)
+    def forward(self, x):
+        x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
         # softmax for the distribution
         x = self.sm(x)
-        return 
+        return(x)
 
 policy = Policy()
 #action_probability = policy.forward(torch.tensor([1,2,3,4], dtype=torch.float))
@@ -181,42 +182,44 @@ for k in range(K):
     #reset environment
     #observation, info = env.reset()
     time_step = env.reset()
+    observation = time_step.observation
     
     returns = 0
     episode = []
     for t in range(T):
         # compute action probability with the neural net.
-       
-        observation = np.array(time_step.observation.items())
+        observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
+        observation = torch.tensor(observation)
         print(observation)
-        action_probability = policy.forward(torch.tensor([observation]))
+        #breakpoint()
+        action_probability = policy.forward(observation)
         #take a random action. make the tensor into np array.
-        action_probability = action_probability.cpu().detach().numpy()[0]
+        action_probability = action_probability.cpu().detach().numpy()
         print(action_probability)
         # sample an action according to the current probability distribution.
         action = random.choices(population=[0,1], weights=action_probability, k=1)[0]
-        #next_observation, reward, terminated, truncated, info = env.step(action)
-        env.step(action)
-        returns += time_step.reward
+        next_observation, reward, terminated, info = env.step(action)
+        print(reward)
+        returns += reward
         #build transition
-        transition = [observation, time_step.action, time_step.reward, time_step.observation, time_step.terminated]
+        transition = [observation, action, reward, next_observation, terminated]
         #add transition to list of transitions
         episode.append(transition)
 
         #if we completed an episode, reset the environment and observation
-        if time_step.terminated:
+        if terminated:
           #  print("episode has terminated with retursn {R}".format(R=returns))
             time_step = env.reset()
+            observation = time_step.observation
             returns = 0
             episodes.append(episode)
             episode = []
         else:
             #set current observation to new observation
-            observation = time_step.observation
+            observation = next_observation
     #print(episodes[0])
     episodes_reward_togo = reward_togo(episodes)
     
-
 '''
 html_video = display_video(frames, framerate=1./env.control_timestep())
 
@@ -235,9 +238,9 @@ for i, key in enumerate(time_step.observation):
 
 html_video
 
+'''
 
-
-
+'''
 # define a goal for this rl environment
 #physics = mujoco.Physics.from_xml_string(static_model)
 walker = cmu_humanoid.CMUHumanoid()
