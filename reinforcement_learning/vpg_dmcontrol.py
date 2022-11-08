@@ -199,6 +199,8 @@ for k in range(K):
         # sample an action according to the current probability distribution.
         action = random.choices(population=[0,1], weights=action_probability, k=1)[0]
         next_observation, reward, terminated, info = env.step(action)
+        pixels = env.physics.render()
+        frames.append(pixels)
         print(reward)
         returns += reward
         #build transition
@@ -220,7 +222,7 @@ for k in range(K):
     #print(episodes[0])
     episodes_reward_togo = reward_togo(episodes)
     
-'''
+
 html_video = display_video(frames, framerate=1./env.control_timestep())
 
 # Show video and plot reward and observations
@@ -238,7 +240,7 @@ for i, key in enumerate(time_step.observation):
 
 html_video
 
-'''
+
 
 '''
 # define a goal for this rl environment
