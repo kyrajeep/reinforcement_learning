@@ -114,6 +114,7 @@ def reward_togo(episodes):
     for episode in episodes:
         episode_reward_togo = []
         returns = 0
+        # start with the final episode
         for transition in reversed(episode):
             returns += transition[2]
             new_transition = transition
@@ -122,13 +123,28 @@ def reward_togo(episodes):
             # for the current episode, add the updated transition.
             episode_reward_togo.append(new_transition)
         episodes_reward_togo.append(episode_reward_togo)
+    print(episodes_reward_togo[1])    
     return episodes_reward_togo
 
+class Value(nn.Module):
+    # our value network to compute the value function to improve the policy
+    def __init__(self):
+        super(Value, self).__init__()
+        # for regression, activation function is not needed.
+        self.fc1 = nn.Linear(13, 20)
+        self.fc2 = nn.Linear(20, 1)  # outputting a value, not a probability distribution
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return x
+
+
 class Policy(nn.Module):
+    # policy network to do the policy rollout and collect returns to go
     def __init__(self):
         super(Policy, self).__init__()
         self.sm = nn.Softmax(dim=0)
-      # First fully connected layer that takes in state (4D)
+      # First fully connected layer that takes in state (13D)
         self.fc1 = nn.Linear(13, 16)
       # Second fully connected layer that outputs our distribution over 2 actions
         self.fc2 = nn.Linear(16, 2)
@@ -136,16 +152,12 @@ class Policy(nn.Module):
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
-        # softmax for the distribution
+        # softmax to learn the normal distribution
         x = self.sm(x)
         return(x)
 
 policy = Policy()
-#action_probability = policy.forward(torch.tensor([1,2,3,4], dtype=torch.float))
-# Seed numpy's global RNG so that cell outputs are deterministic. We also try to
-# use RandomState instances that are local to a single cell wherever possible.
-np.random.seed(42)
-
+value = Value()
 
 # use the benchmark control suite
 max_len = max(len(d) for d, _ in suite.BENCHMARKING)
@@ -168,10 +180,6 @@ observations = []
 spec = env.action_spec()
 time_step = env.reset()
 
-#TODO: NN that learns a value function (regression)   input: state, output: single number
-# action - softmax learns a normal distribution (normalizes)
-# value function - NN learns.
-# Pytorch DQN
 K=1
 T = 100
 for k in range(K):
@@ -180,28 +188,29 @@ for k in range(K):
     episodes = []
  
     #reset environment
-    #observation, info = env.reset()
     time_step = env.reset()
     observation = time_step.observation
-    
+    # change the type to feed into pytorch.
+    observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
+    observation = torch.tensor(observation)
     returns = 0
     episode = []
     for t in range(T):
         # compute action probability with the neural net.
-        observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
-        observation = torch.tensor(observation)
-        print(observation)
-        #breakpoint()
         action_probability = policy.forward(observation)
         #take a random action. make the tensor into np array.
         action_probability = action_probability.cpu().detach().numpy()
-        print(action_probability)
+       
         # sample an action according to the current probability distribution.
         action = random.choices(population=[0,1], weights=action_probability, k=1)[0]
+
         next_observation, reward, terminated, info = env.step(action)
+        next_observation = time_step.observation
+        next_observation = np.concatenate([next_observation['position'], next_observation['velocity']]).astype(np.float32)
+        next_observation = torch.tensor(next_observation)
         pixels = env.physics.render()
         frames.append(pixels)
-        print(reward)
+       
         returns += reward
         #build transition
         transition = [observation, action, reward, next_observation, terminated]
@@ -212,7 +221,10 @@ for k in range(K):
         if terminated:
           #  print("episode has terminated with retursn {R}".format(R=returns))
             time_step = env.reset()
+            
             observation = time_step.observation
+            observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
+            observation = torch.tensor(observation)
             returns = 0
             episodes.append(episode)
             episode = []
@@ -221,6 +233,7 @@ for k in range(K):
             observation = next_observation
     #print(episodes[0])
     episodes_reward_togo = reward_togo(episodes)
+
     
 
 html_video = display_video(frames, framerate=1./env.control_timestep())
