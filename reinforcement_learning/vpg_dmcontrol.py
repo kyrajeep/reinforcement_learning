@@ -108,31 +108,13 @@ else:
     plt.show()
     return
 
-def reward_togo(episodes):
-    # initialize our list of lists (transitions per episode)
-    episodes_reward_togo = []
-    for episode in episodes:
-        episode_reward_togo = []
-        returns = 0
-        # start with the final episode
-        for transition in reversed(episode):
-            returns += transition[2]
-            new_transition = transition
-            # update reward to reward-to-go.
-            new_transition[2] = returns
-            # for the current episode, add the updated transition.
-            episode_reward_togo.append(new_transition)
-        episodes_reward_togo.append(episode_reward_togo)
-    print(episodes_reward_togo[1])    
-    return episodes_reward_togo
-
 class Value(nn.Module):
     # our value network to compute the value function to improve the policy
     def __init__(self):
         super(Value, self).__init__()
         # for regression, activation function is not needed.
         self.fc1 = nn.Linear(13, 20)
-        self.fc2 = nn.Linear(20, 1)  # outputting a value, not a probability distribution
+        self.fc2 = nn.Linear(20, 13)  # outputting a value, not a probability distribution
     def forward(self, x):
         x = self.fc1(x)
         x = self.fc2(x)
@@ -140,7 +122,7 @@ class Value(nn.Module):
 
 
 class Policy(nn.Module):
-    # policy network to do the policy rollout and collect returns to go
+    # policy network to output action distribution
     def __init__(self):
         super(Policy, self).__init__()
         self.sm = nn.Softmax(dim=0)
@@ -156,8 +138,27 @@ class Policy(nn.Module):
         x = self.sm(x)
         return(x)
 
-policy = Policy()
-value = Value()
+def reward_togo(episodes):
+    # input: episodes, output: rewards to go for each time step.
+    # initialize our list of lists (transitions per episode)
+    episodes_reward_togo = []
+    for episode in episodes:
+        episode_reward_togo = []
+        returns = 0
+        # start with the last time step
+        for transition in reversed(episode):
+            returns += transition[2] #update returns 
+            new_transition = transition
+            # update reward to reward-to-go.
+            new_transition[2] = returns
+            
+            episode_reward_togo.append(new_transition)
+        episodes_reward_togo.append(episode_reward_togo)
+    print(episodes_reward_togo[1])    
+    return episodes_reward_togo
+
+policy_net = Policy()
+value_net = Value()
 
 # use the benchmark control suite
 max_len = max(len(d) for d, _ in suite.BENCHMARKING)
@@ -180,6 +181,7 @@ observations = []
 spec = env.action_spec()
 time_step = env.reset()
 
+# train
 K=1
 T = 100
 for k in range(K):
@@ -193,11 +195,13 @@ for k in range(K):
     # change the type to feed into pytorch.
     observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
     observation = torch.tensor(observation)
-    returns = 0
+    returns = time_step.reward
+    returns = np.array(returns).astype(np.float32)
+    returns = torch.tensor(returns)
     episode = []
     for t in range(T):
         # compute action probability with the neural net.
-        action_probability = policy.forward(observation)
+        action_probability = policy_net.forward(observation)
         #take a random action. make the tensor into np array.
         action_probability = action_probability.cpu().detach().numpy()
        
@@ -216,12 +220,11 @@ for k in range(K):
         transition = [observation, action, reward, next_observation, terminated]
         #add transition to list of transitions
         episode.append(transition)
-
-        #if we completed an episode, reset the environment and observation
+      
         if terminated:
-          #  print("episode has terminated with retursn {R}".format(R=returns))
+          
             time_step = env.reset()
-            
+            # reset everything for a new episode to add.
             observation = time_step.observation
             observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
             observation = torch.tensor(observation)
@@ -229,13 +232,18 @@ for k in range(K):
             episodes.append(episode)
             episode = []
         else:
-            #set current observation to new observation
+            #if not terminated, collect the next observation
             observation = next_observation
-    #print(episodes[0])
-    episodes_reward_togo = reward_togo(episodes)
-
+        # After this set of episodes, get rewards to go.. but it acts as a baseline?
+        episodes_reward_togo = reward_togo(episodes)
+        # estimate the policy gradient and update policy.
+        optimizer = optim.Adam(policy.parameters(), lr=1e-2)
+        # mean square loss for value network output and the actual return?
+   
     
 
+    
+# the video part and not training
 html_video = display_video(frames, framerate=1./env.control_timestep())
 
 # Show video and plot reward and observations
