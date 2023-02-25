@@ -109,17 +109,19 @@ else:
     return
 
 class Value(nn.Module):
-    # our value network to compute the value function to improve the policy
-    def __init__(self):
-        super(Value, self).__init__()
-        # for regression, activation function is not needed.
-        self.fc1 = nn.Linear(13, 20)
-        self.fc2 = nn.Linear(20, 13)  # outputting a value, not a probability distribution
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.fc2(x)
-        return x
 
+    def __init__(self, n_observations):
+        super.__init__()
+        self.layer1 = nn.Linear(n_observations, 128)
+        self.layer2 = nn.Linear(128, 128)
+        self.layer3 = nn.Linear(128, 1)
+
+    # Called with either one element to determine next action, or a batch
+    # during optimization. Returns tensor([[left0exp,right0exp]...]).
+    def forward(self, x):
+        x = F.relu(self.layer1(x))
+        x = F.relu(self.layer2(x))
+        return self.layer3(x)
 
 class Policy(nn.Module):
     # policy network to output action distribution
@@ -222,24 +224,25 @@ for k in range(K):
         episode.append(transition)
       
         if terminated:
-          
-            time_step = env.reset()
-            # reset everything for a new episode to add.
-            observation = time_step.observation
+            episodes.append(episode)
             observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
             observation = torch.tensor(observation)
-            returns = 0
-            episodes.append(episode)
             episode = []
+            time_step = env.reset()
+            observation = time_step.observation
+            returns = 0
         else:
             #if not terminated, collect the next observation
             observation = next_observation
-        # After this set of episodes, get rewards to go.. but it acts as a baseline?
+
         episodes_reward_togo = reward_togo(episodes)
         # estimate the policy gradient and update policy.
-        optimizer = optim.Adam(policy.parameters(), lr=1e-2)
-        # mean square loss for value network output and the actual return?
-   
+        optimizer = optim.Adam(policy_net.parameters(), lr=1e-2)
+        loss_fn = nn.MSELoss()
+        optimizer = optim.Adam(value_net.parameters(), lr=0.0001)
+        #value_net.eval()?
+        v_pred = value_net(observations)
+        mse_loss = loss_fn(v_pred, episodes_reward_togo)
     
 
     
