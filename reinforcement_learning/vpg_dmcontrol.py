@@ -235,14 +235,15 @@ for k in range(K):
             #if not terminated, collect the next observation
             observation = next_observation
 
-        episodes_reward_togo = reward_togo(episodes)
-        # estimate the policy gradient and update policy.
-        optimizer = optim.Adam(policy_net.parameters(), lr=1e-2)
-        loss_fn = nn.MSELoss()
-        optimizer = optim.Adam(value_net.parameters(), lr=0.0001)
-        #value_net.eval()?
-        v_pred = value_net(observations)
-        mse_loss = loss_fn(v_pred, episodes_reward_togo)
+    episodes_reward_togo = reward_togo(episodes)
+    # estimate the policy gradient and update policy.
+    #TODO: multiply by the reward to go
+    optimizer = optim.Adam(policy_net.parameters(), lr=1e-2)
+    loss_fn = nn.MSELoss()
+    optimizer = optim.Adam(value_net.parameters(), lr=0.0001)
+    #value_net.eval()?
+    v_pred = value_net(observations)
+    mse_loss = loss_fn(v_pred, episodes_reward_togo)
     
 
     
