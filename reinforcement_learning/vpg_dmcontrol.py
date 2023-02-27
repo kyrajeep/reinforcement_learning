@@ -204,16 +204,17 @@ for k in range(K):
     for t in range(T):
         # compute action probability with the neural net.
         action_probability = policy_net.forward(observation)
-        #take a random action. make the tensor into np array.
         action_probability = action_probability.cpu().detach().numpy()
        
         # sample an action according to the current probability distribution.
         action = random.choices(population=[0,1], weights=action_probability, k=1)[0]
-
+        # collect the next state and reward according to the sampled action
         next_observation, reward, terminated, info = env.step(action)
         next_observation = time_step.observation
+        # save the next obs 
         next_observation = np.concatenate([next_observation['position'], next_observation['velocity']]).astype(np.float32)
         next_observation = torch.tensor(next_observation)
+        # graphics part
         pixels = env.physics.render()
         frames.append(pixels)
        
@@ -235,15 +236,15 @@ for k in range(K):
             #if not terminated, collect the next observation
             observation = next_observation
 
-    episodes_reward_togo = reward_togo(episodes)
-    # estimate the policy gradient and update policy.
-    #TODO: multiply by the reward to go
-    optimizer = optim.Adam(policy_net.parameters(), lr=1e-2)
-    loss_fn = nn.MSELoss()
-    optimizer = optim.Adam(value_net.parameters(), lr=0.0001)
-    #value_net.eval()?
-    v_pred = value_net(observations)
-    mse_loss = loss_fn(v_pred, episodes_reward_togo)
+        episodes_reward_togo = reward_togo(episodes)
+        # policy update
+        optimizer1 = optim.Adam(policy_net.parameters(), lr=1e-2)
+        loss_func = nn.MSELoss()
+        optimizer2 = optim.Adam(value_net.parameters(), lr=0.0001)
+        #value_net.eval()
+        v_pred = value_net(observations)
+        # regression for the value function 
+        mse_loss = loss_func(v_pred, episodes_reward_togo)
     
 
     
