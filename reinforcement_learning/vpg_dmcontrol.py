@@ -156,11 +156,10 @@ def reward_togo(episodes):
             
             episode_reward_togo.append(new_transition)
         episodes_reward_togo.append(episode_reward_togo)
-    print(episodes_reward_togo[1])    
+    #print(episodes_reward_togo[1])    
     return episodes_reward_togo
 
-policy_net = Policy()
-value_net = Value()
+
 
 # use the benchmark control suite
 max_len = max(len(d) for d, _ in suite.BENCHMARKING)
@@ -174,7 +173,7 @@ random_state = np.random.RandomState(42)
 env = suite.load('hopper', 'stand', task_kwargs={'random': random_state})
 
 # Simulate episode with random actions
-duration = 6  # Seconds
+duration = 6  # Secondds
 frames = []
 ticks = []
 rewards = []
@@ -187,9 +186,9 @@ time_step = env.reset()
 K=1
 T = 100
 for k in range(K):
-    #list of transitions sampled for the policy
-    #contains [observation, action, reward, observation']
+    
     episodes = []
+    episode = []
  
     #reset environment
     time_step = env.reset()
@@ -200,21 +199,20 @@ for k in range(K):
     returns = time_step.reward
     returns = np.array(returns).astype(np.float32)
     returns = torch.tensor(returns)
-    episode = []
+    policy_net = Policy()
     for t in range(T):
         # compute action probability with the neural net.
         action_probability = policy_net.forward(observation)
+        #take a random action. make the tensor into np array.
         action_probability = action_probability.cpu().detach().numpy()
        
         # sample an action according to the current probability distribution.
         action = random.choices(population=[0,1], weights=action_probability, k=1)[0]
-        # collect the next state and reward according to the sampled action
+
         next_observation, reward, terminated, info = env.step(action)
         next_observation = time_step.observation
-        # save the next obs 
         next_observation = np.concatenate([next_observation['position'], next_observation['velocity']]).astype(np.float32)
         next_observation = torch.tensor(next_observation)
-        # graphics part
         pixels = env.physics.render()
         frames.append(pixels)
        
@@ -226,25 +224,39 @@ for k in range(K):
       
         if terminated:
             episodes.append(episode)
-            observation = np.concatenate([observation['position'], observation['velocity']]).astype(np.float32)
-            observation = torch.tensor(observation)
+            
+            returns = 0
             episode = []
             time_step = env.reset()
             observation = time_step.observation
-            returns = 0
+            print(observation)
+            observation = np.concatenate([observation['position'], next_observation['velocity']]).astype(np.float32)
+            observation = torch.tensor(observation)
+            returns = time_step.reward
+            returns = np.array(returns).astype(np.float32)
+            returns = torch.tensor(returns)
         else:
             #if not terminated, collect the next observation
             observation = next_observation
-
-        episodes_reward_togo = reward_togo(episodes)
-        # policy update
+        
         optimizer1 = optim.Adam(policy_net.parameters(), lr=1e-2)
-        loss_func = nn.MSELoss()
+    #    optimizer1.zero_grad()
+     #   loss.backward()
+      #  optimizer1.step()
+
+        value_net = Value(len(episode))
+        value_net.train()
+        episodes_reward_togo = reward_togo(episodes)
+        # estimate the policy gradient and update policy.
+        
+        loss_fn = nn.MSELoss()
         optimizer2 = optim.Adam(value_net.parameters(), lr=0.0001)
-        #value_net.eval()
-        v_pred = value_net(observations)
-        # regression for the value function 
-        mse_loss = loss_func(v_pred, episodes_reward_togo)
+        
+        v_pred = value_net.forward(transition)
+        mse_loss = loss_fn(v_pred, episodes_reward_togo)
+        optimizer2.zero_grad()
+        mse_loss.backward()
+        optimizer2.step()
     
 
     
